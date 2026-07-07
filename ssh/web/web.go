@@ -159,3 +159,121 @@ func NewSSHServerBridge(router *echo.Echo, cache cache.Cache) {
 		}
 	})))
 }
+
+// NewSFTPServerBridge registers the Web SFTP file-browser routes on the given router. It mirrors
+// [NewSSHServerBridge]'s credential broker (POST exchanges credentials for a short-lived token; GET upgrades the
+// WebSocket) but the GET side needs no terminal dimensions and opens the agent's "sftp" subsystem instead of a shell
+// (see [newSftpSession]).
+func NewSFTPServerBridge(router *echo.Echo, cache cache.Cache) {
+	const WebsocketSFTPBridgeRoute = "/ws/sftp"
+
+	manager := newManager(30 * time.Second)
+
+	// NOTICE: this is the route where users send their credentials securely, identical to the terminal bridge.
+	router.Add(http.MethodPost, WebsocketSFTPBridgeRoute, echo.WrapHandler(
+		http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			type Success struct {
+				Token string `json:"token"`
+			}
+
+			type Fail struct {
+				Error string `json:"error"`
+			}
+
+			decoder := json.NewDecoder(req.Body)
+			encoder := json.NewEncoder(res)
+
+			response := func(res http.ResponseWriter, status int, data any) {
+				res.WriteHeader(status)
+				res.Header().Set("Content-Type", "application/json")
+
+				encoder.Encode(data) //nolint: errcheck,errchkjson
+			}
+
+			var request Credentials
+			if err := decoder.Decode(&request); err != nil {
+				response(res, http.StatusBadRequest, Fail{Error: err.Error()})
+
+				return
+			}
+
+			key := magickey.GetReference()
+
+			token, err := token.NewToken(key)
+			if err != nil {
+				response(res, http.StatusBadRequest, Fail{Error: err.Error()})
+
+				return
+			}
+
+			request.encryptPassword(key) //nolint:errcheck
+
+			// NOTICE: saved credentials are deleted after a time period.
+			manager.save(token.ID, &request)
+
+			response(res, http.StatusOK, Success{Token: token.ID})
+		})),
+	)
+
+	router.Add(http.MethodGet, WebsocketSFTPBridgeRoute, echo.WrapHandler(websocket.Handler(func(wsconn *websocket.Conn) {
+		defer wsconn.Close() //nolint:errcheck
+
+		// exit sends the error's message to the client on the browser.
+		exit := func(wsconn *websocket.Conn, err error) {
+			log.WithError(err).Log(exitLogLevel(err), "web sftp error")
+
+			buffer, marshalErr := json.Marshal(Message{
+				Kind: messageKindError,
+				Data: err.Error(),
+			})
+			if marshalErr != nil {
+				log.WithError(marshalErr).Error("failed to marshal error message")
+
+				return
+			}
+
+			wsconn.Write(buffer) //nolint:errcheck
+		}
+
+		token, err := getToken(wsconn.Request())
+		if err != nil {
+			exit(wsconn, ErrWebSocketGetToken)
+
+			return
+		}
+
+		ip, err := getIP(wsconn.Request())
+		if err != nil {
+			exit(wsconn, ErrWebSocketGetIP)
+
+			return
+		}
+
+		creds, ok := manager.get(token)
+		if !ok {
+			exit(wsconn, ErrBridgeCredentialsNotFound)
+
+			return
+		}
+
+		// SFTP upload chunks are larger than a terminal line, so use the larger read limit.
+		conn := NewConnWithLimit(wsconn, SftpReadMessageBufferSize)
+		defer conn.Close() //nolint:errcheck
+
+		go conn.KeepAlive()
+
+		creds.decryptPassword(magickey.GetReference()) //nolint:errcheck
+
+		if err := newSftpSession(
+			wsconn.Request().Context(),
+			cache,
+			conn,
+			creds,
+			Info{IP: ip},
+		); err != nil {
+			exit(wsconn, err)
+
+			return
+		}
+	})))
+}

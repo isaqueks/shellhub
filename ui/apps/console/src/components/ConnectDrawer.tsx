@@ -7,9 +7,11 @@ import {
   ExclamationCircleIcon,
   VideoCameraIcon,
   CheckIcon,
+  FolderOpenIcon,
 } from "@heroicons/react/24/outline";
 import { useTerminalStore } from "../stores/terminalStore";
 import type { TerminalSession } from "../stores/terminalStore";
+import { useSftpStore } from "../stores/sftpStore";
 import { useVaultStore } from "../stores/vaultStore";
 import { useAuthStore } from "../stores/authStore";
 import { useNamespace } from "../hooks/useNamespaces";
@@ -35,6 +37,8 @@ interface Props {
   deviceUid: string;
   deviceName: string;
   sshid: string;
+  /** "terminal" opens a web shell (default); "sftp" opens the web file browser. */
+  variant?: "terminal" | "sftp";
 }
 
 interface FormState {
@@ -114,8 +118,11 @@ export default function ConnectDrawer({
   deviceUid,
   deviceName,
   sshid,
+  variant = "terminal",
 }: Props) {
+  const isSftp = variant === "sftp";
   const openTerminal = useTerminalStore((s) => s.open);
+  const openSftp = useSftpStore((s) => s.open);
   const vaultStatus = useVaultStore((s) => s.status);
   const vaultKeys = useVaultStore((s) => s.keys);
   const refreshVault = useVaultStore((s) => s.refreshStatus);
@@ -232,13 +239,17 @@ export default function ConnectDrawer({
       };
     }
 
-    // Opt-in recording. Captured client-side to OPFS — no picker, no upload.
+    // Opt-in recording (terminal only). Captured client-side to OPFS — no picker, no upload.
     // Skip when the namespace already records server-side.
-    if (!namespaceRecords && state.recordSession && isRecordingSupported()) {
+    if (!isSftp && !namespaceRecords && state.recordSession && isRecordingSupported()) {
       params = { ...params, record: true };
     }
 
-    openTerminal(params);
+    if (isSftp) {
+      openSftp(params);
+    } else {
+      openTerminal(params);
+    }
     onClose();
   };
 
@@ -251,7 +262,7 @@ export default function ConnectDrawer({
       <Drawer
         open={open}
         onClose={onClose}
-        title="Connect"
+        title={isSftp ? "Browse Files" : "Connect"}
         subtitle={<span className="font-mono">{deviceName}</span>}
         footer={
           <>
@@ -264,10 +275,14 @@ export default function ConnectDrawer({
               form={`connect-form-${deviceUid}`}
               disabled={!canConnect}
               icon={
-                <ChevronDoubleRightIcon className="w-4 h-4" strokeWidth={2} />
+                isSftp ? (
+                  <FolderOpenIcon className="w-4 h-4" strokeWidth={2} />
+                ) : (
+                  <ChevronDoubleRightIcon className="w-4 h-4" strokeWidth={2} />
+                )
               }
             >
-              Connect
+              {isSftp ? "Browse Files" : "Connect"}
             </Button>
           </>
         }
@@ -277,7 +292,8 @@ export default function ConnectDrawer({
           onSubmit={handleConnect}
           className="space-y-5"
         >
-          {/* SSHID helper */}
+          {/* SSHID helper (terminal only) */}
+          {!isSftp && (
           <Card className="rounded-lg p-3.5">
             <span className={LABEL}>Connect via terminal</span>
             <div className="flex items-center gap-2">
@@ -314,7 +330,9 @@ export default function ConnectDrawer({
               </p>
             )}
           </Card>
+          )}
 
+          {!isSftp && (
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-border" />
             <span className="text-2xs text-text-secondary font-medium uppercase tracking-wider">
@@ -322,6 +340,7 @@ export default function ConnectDrawer({
             </span>
             <div className="flex-1 h-px bg-border" />
           </div>
+          )}
 
           <InputField
             id="connect-username"
@@ -474,7 +493,7 @@ export default function ConnectDrawer({
             </p>
           )}
 
-          {namespaceRecords && (
+          {!isSftp && namespaceRecords && (
             <div className="w-full px-3.5 py-3 rounded-lg border border-border bg-card text-left">
               <div className="flex items-start gap-3">
                 <span
@@ -501,7 +520,7 @@ export default function ConnectDrawer({
             </div>
           )}
 
-          {!namespaceRecords && recordingSupported && (
+          {!isSftp && !namespaceRecords && recordingSupported && (
             <label
               className={`flex items-start gap-3 w-full px-3.5 py-3 rounded-lg border text-left transition-all cursor-pointer focus-within:ring-2 focus-within:ring-primary/40 ${
                 state.recordSession

@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import AppBar from "./AppBar";
 import TerminalManager from "../terminal/TerminalManager";
+import SftpManager from "../sftp/SftpManager";
 import ConnectivityBanner from "../common/ConnectivityBanner";
 import LicenseBanner from "../common/LicenseBanner";
 import DeviceLimitBanner from "@/components/common/DeviceLimitBanner";
@@ -14,6 +15,7 @@ import SkipToContentLink from "./SkipToContentLink";
 import CommandPalette from "@/components/commandPalette/CommandPalette";
 import { useNamespaces } from "@/hooks/useNamespaces";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { useSftpStore } from "@/stores/sftpStore";
 import { useSidebarLayout } from "@/hooks/useSidebarLayout";
 import VaultAutoLockBanner from "@/components/vault/VaultAutoLockBanner";
 import { getConfig } from "@/env";
@@ -26,6 +28,9 @@ export default function AppLayout() {
   const hasVisibleTerminal = useTerminalStore((s) =>
     s.sessions.some((t) => t.state !== "minimized"),
   );
+  const hasVisibleSftp = useSftpStore((s) =>
+    s.sessions.some((t) => t.state !== "minimized"),
+  );
   const { isOpen, pinned, isDesktop, drawerOpen, handlers } =
     useSidebarLayout();
 
@@ -35,7 +40,7 @@ export default function AppLayout() {
   return (
     <ChatwootProvider>
       <div
-        className={`flex flex-col h-screen bg-background ${hasVisibleTerminal ? "overflow-hidden" : ""}`}
+        className={`flex flex-col h-screen bg-background ${hasVisibleTerminal || hasVisibleSftp ? "overflow-hidden" : ""}`}
       >
         <SkipToContentLink />
         <ConnectivityBanner />
@@ -96,6 +101,7 @@ export default function AppLayout() {
           </div>
         </div>
         <TerminalManager sidebarOffset={sidebarOffset} />
+        <SftpManager sidebarOffset={sidebarOffset} />
         <CommandPalette />
         <WelcomeWizardTrigger />
         <AnnouncementModalTrigger />

@@ -64,3 +64,14 @@ var (
 	ErrAccessDenied = errors.New("access to the device has been denied")
 	ErrInvalidSSHID = errors.New("invalid sshid format")
 )
+
+var (
+	// ErrSubsystem is returned when the agent refuses or fails to start the "sftp" subsystem.
+	ErrSubsystem = errors.New("failed to request the sftp subsystem")
+	// ErrSftpClient is returned when the gateway-side pkg/sftp client fails to initialize.
+	ErrSftpClient = errors.New("failed to create the sftp client")
+	// ErrSftpOpen is returned when a remote file cannot be opened for download/upload.
+	ErrSftpOpen = errors.New("failed to open the remote file")
+	// ErrSftpOp is a generic failure for a filesystem operation over sftp.
+	ErrSftpOp = errors.New("failed to perform the sftp operation")
+)

@@ -1,0 +1,73 @@
+import { XMarkIcon, FolderOpenIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "@shellhub/design-system/primitives";
+import { useSftpStore } from "@/stores/sftpStore";
+
+export default function SftpTaskbar({
+  sidebarOffset,
+}: {
+  sidebarOffset: number;
+}) {
+  const { sessions, restore, close } = useSftpStore();
+  const minimized = sessions.filter((s) => s.state === "minimized");
+
+  if (minimized.length === 0) return null;
+
+  return (
+    <div
+      style={{ left: sidebarOffset }}
+      className="fixed bottom-0 right-0 z-30 h-11 flex items-center gap-1.5 px-3 bg-surface border-t border-border animate-slide-up transition-[left] duration-200 ease-out"
+    >
+      {minimized.map((s) => {
+        const isConnected = s.connectionStatus === "connected";
+
+        return (
+          <div
+            key={s.id}
+            className={`flex items-center gap-2 pl-3 pr-1.5 py-1.5 border rounded-lg transition-all duration-150 cursor-pointer group animate-fade-in ${
+              isConnected
+                ? "bg-accent-green/[0.06] border-accent-green/25 hover:border-accent-green/40 hover:bg-accent-green/[0.1]"
+                : "bg-card border-border hover:border-primary/30 hover:bg-primary/[0.04]"
+            }`}
+            onClick={() => restore(s.id)}
+          >
+            <span
+              className={`shrink-0 w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
+                isConnected
+                  ? "bg-accent-green shadow-[0_0_4px_rgba(130,165,104,0.6)]"
+                  : s.connectionStatus === "connecting"
+                    ? "bg-accent-yellow animate-pulse"
+                    : "bg-accent-red"
+              }`}
+            />
+            <FolderOpenIcon
+              className={`w-3.5 h-3.5 transition-colors duration-150 ${
+                isConnected
+                  ? "text-accent-green group-hover:text-accent-green"
+                  : "text-text-muted group-hover:text-primary"
+              }`}
+            />
+            <span
+              className={`text-xs font-medium transition-colors duration-150 max-w-[160px] truncate ${
+                isConnected
+                  ? "text-accent-green"
+                  : "text-text-secondary group-hover:text-text-primary"
+              }`}
+            >
+              {s.deviceName}
+            </span>
+            <IconButton
+              size="sm"
+              aria-label="Close"
+              onClick={(e) => {
+                e.stopPropagation();
+                close(s.id);
+              }}
+            >
+              <XMarkIcon className="w-3.5 h-3.5" strokeWidth={2} />
+            </IconButton>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

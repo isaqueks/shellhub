@@ -9,12 +9,14 @@ import {
   ClockIcon,
   CpuChipIcon,
   ChevronDoubleRightIcon,
+  FolderOpenIcon,
 } from "@heroicons/react/24/outline";
 import { useDevice } from "../hooks/useDevice";
 import { useDeviceActions } from "../hooks/useDeviceActions";
 import { useNamespace } from "../hooks/useNamespaces";
 import { useAuthStore } from "../stores/authStore";
 import { useTerminalStore } from "../stores/terminalStore";
+import { useSftpStore } from "../stores/sftpStore";
 import DeviceActionsPortal from "./devices/DeviceActionsPortal";
 import ConnectDrawer from "../components/ConnectDrawer";
 import CopyButton from "../components/common/CopyButton";
@@ -44,6 +46,11 @@ export default function DeviceDetails() {
     s.sessions.find((sess) => sess.deviceUid === uid),
   );
   const restoreTerminal = useTerminalStore((s) => s.restore);
+  const existingSftp = useSftpStore((s) =>
+    s.sessions.find((sess) => sess.deviceUid === uid),
+  );
+  const restoreSftp = useSftpStore((s) => s.restore);
+  const requestSftp = useSftpStore((s) => s.requestConnect);
   const [connectOpen, setConnectOpen] = useState(false);
   const actionsController = useDeviceActions({
     onSuccess: (action) => {
@@ -166,6 +173,22 @@ export default function DeviceDetails() {
                   }
                 >
                   Connect
+                </Button>
+              </RestrictedAction>
+              <RestrictedAction action="device:connect">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    if (existingSftp) {
+                      restoreSftp(existingSftp.id);
+                    } else {
+                      requestSftp(device.uid, device.name);
+                    }
+                  }}
+                  disabled={!device.online}
+                  icon={<FolderOpenIcon className="w-4 h-4" strokeWidth={2} />}
+                >
+                  Browse Files
                 </Button>
               </RestrictedAction>
               <RestrictedAction action="device:remove">

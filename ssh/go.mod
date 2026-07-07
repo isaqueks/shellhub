@@ -12,6 +12,7 @@ require (
 	github.com/labstack/echo/v4 v4.15.4
 	github.com/multiformats/go-multistream v0.6.1
 	github.com/pires/go-proxyproto v0.14.0
+	github.com/pkg/sftp v1.13.10
 	github.com/shellhub-io/shellhub v0.0.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
@@ -38,6 +39,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hibiken/asynq v0.24.1 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/leodido/go-urn v1.2.2 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240408141607-282e7b5d6b74 // indirect

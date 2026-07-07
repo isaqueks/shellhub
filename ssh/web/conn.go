@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -21,12 +22,26 @@ type Conn struct {
 	Socket Socket
 	// Pinger is reponsable to inform the server that a SSH session is open.
 	Pinger *time.Ticker
+	// readLimit caps how many bytes [Conn.ReadMessage] will decode from a single message. It defaults to
+	// [ReadMessageBufferSize] for terminal connections; the /ws/sftp connection uses [SftpReadMessageBufferSize] so
+	// that base64-encoded upload chunks fit within a single message.
+	readLimit int64
+	// writeMu serializes writes to the underlying socket so concurrent writers (the message/binary writers and the
+	// keep-alive pinger) never interleave frames on the wire.
+	writeMu sync.Mutex
 }
 
 func NewConn(socket Socket) *Conn {
+	return NewConnWithLimit(socket, ReadMessageBufferSize)
+}
+
+// NewConnWithLimit creates a [Conn] with a custom per-message read limit. The Web SFTP bridge uses this with
+// [SftpReadMessageBufferSize] because its upload-chunk messages are larger than a terminal line.
+func NewConnWithLimit(socket Socket, limit int64) *Conn {
 	return &Conn{
-		Socket: socket,
-		Pinger: time.NewTicker(30 * time.Second),
+		Socket:    socket,
+		Pinger:    time.NewTicker(30 * time.Second),
+		readLimit: limit,
 	}
 }
 
@@ -64,8 +79,13 @@ const TermniosMaxLineLength = 4096
 // minimum message size [MessageMinSize].
 const ReadMessageBufferSize = MessageMinSize + (TermniosMaxLineLength * CharacterSize)
 
+// SftpReadMessageBufferSize is the per-message read limit used by the /ws/sftp connection. 256 KiB comfortably fits a
+// 128 KiB raw upload chunk after base64 expansion (~170 KB) plus the JSON envelope, so uploads need far fewer
+// round-trips than the terminal's [ReadMessageBufferSize] would allow.
+const SftpReadMessageBufferSize int64 = 256 * 1024
+
 func (c *Conn) ReadMessage(message *Message) (int, error) {
-	limit := io.LimitReader(c.Socket, ReadMessageBufferSize)
+	limit := io.LimitReader(c.Socket, c.readLimit)
 	decoder := json.NewDecoder(limit)
 
 	var data json.RawMessage
@@ -108,6 +128,18 @@ func (c *Conn) ReadMessage(message *Message) (int, error) {
 		}
 
 		message.Data = sig
+	case messageKindSftpList, messageKindSftpStat, messageKindSftpMkdir,
+		messageKindSftpRename, messageKindSftpRemove, messageKindSftpDownload,
+		messageKindSftpUpload, messageKindSftpUploadChunk:
+		// NOTE: SFTP request payloads are structured objects (see sftp.go). They are NOT subject to the
+		// [TermniosMaxLineLength] rune cap applied to terminal input above; upload chunks are base64 blobs bounded
+		// only by [SftpReadMessageBufferSize].
+		payload, err := decodeSftpRequest(message.Kind, data)
+		if err != nil {
+			return 0, err
+		}
+
+		message.Data = payload
 	default:
 		return 0, errors.Join(ErrConnReadMessageKindInvalid)
 	}
@@ -121,7 +153,10 @@ func (c *Conn) WriteMessage(message *Message) (int, error) {
 		return 0, errors.Join(ErrConnReadMessageJSONInvalid)
 	}
 
+	c.writeMu.Lock()
 	wrote, err := c.Socket.Write(buffer)
+	c.writeMu.Unlock()
+
 	if err != nil {
 		return wrote, errors.Join(ErrConnReadMessageSocketWrite, err)
 	}
@@ -130,6 +165,9 @@ func (c *Conn) WriteMessage(message *Message) (int, error) {
 }
 
 func (c *Conn) WriteBinary(data []byte) (int, error) {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
 	socket, ok := c.Socket.(*websocket.Conn)
 	if !ok {
 		// NOTE: If the underlying connection is not a websocket connection, fallback to a normal write.
@@ -176,9 +214,14 @@ func (c *Conn) KeepAlive() {
 			return
 		}
 
-		if fw, err := socket.NewFrameWriter(websocket.PingFrame); err != nil {
-			return
-		} else if _, err = fw.Write([]byte{}); err != nil {
+		c.writeMu.Lock()
+		fw, err := socket.NewFrameWriter(websocket.PingFrame)
+		if err == nil {
+			_, err = fw.Write([]byte{})
+		}
+		c.writeMu.Unlock()
+
+		if err != nil {
 			return
 		}
 
