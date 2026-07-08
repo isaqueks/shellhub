@@ -84,7 +84,8 @@ export default function TransferList({
 
             <IconButton
               size="sm"
-              aria-label="Dismiss"
+              aria-label={t.status === "active" ? "Cancel" : "Dismiss"}
+              title={t.status === "active" ? "Cancel" : "Dismiss"}
               onClick={() => onDismiss(t.id)}
             >
               <XMarkIcon className="w-3.5 h-3.5" strokeWidth={2} />

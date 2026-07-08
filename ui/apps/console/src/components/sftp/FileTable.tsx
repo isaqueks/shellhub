@@ -13,6 +13,8 @@ import { type FileEntry, formatSize } from "@/components/sftp/sftpProtocol";
 interface FileTableProps {
   entries: FileEntry[];
   loading?: boolean;
+  /** When true, row navigation and per-row actions are paused (e.g. while a download blocks the session). */
+  disabled?: boolean;
   onOpenDir: (entry: FileEntry) => void;
   onDownload: (entry: FileEntry) => void;
   onRename: (entry: FileEntry) => void;
@@ -29,6 +31,7 @@ function formatMtime(mtime: number): string {
 export default function FileTable({
   entries,
   loading = false,
+  disabled = false,
   onOpenDir,
   onDownload,
   onRename,
@@ -81,7 +84,7 @@ export default function FileTable({
             </tr>
           ) : (
             sorted.map((entry) => {
-              const clickable = entry.isDir || entry.isLink;
+              const clickable = (entry.isDir || entry.isLink) && !disabled;
               const Icon = entry.isDir
                 ? FolderIcon
                 : entry.isLink
@@ -135,6 +138,7 @@ export default function FileTable({
                       {!entry.isDir && (
                         <IconButton
                           size="sm"
+                          disabled={disabled}
                           aria-label={`Download ${entry.name}`}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -149,6 +153,7 @@ export default function FileTable({
                       )}
                       <IconButton
                         size="sm"
+                        disabled={disabled}
                         aria-label={`Rename ${entry.name}`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -160,6 +165,7 @@ export default function FileTable({
                       <IconButton
                         size="sm"
                         variant="danger"
+                        disabled={disabled}
                         aria-label={`Delete ${entry.name}`}
                         onClick={(e) => {
                           e.stopPropagation();

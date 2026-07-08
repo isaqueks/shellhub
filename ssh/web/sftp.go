@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -113,10 +114,18 @@ type SftpError struct {
 	Message   string `json:"message"`
 }
 
-// uploadState tracks an in-flight upload between its begin message and its EOF chunk.
+// maxConcurrentUploads bounds how many in-flight uploads a single session may hold open at once. Each open upload
+// pins a file handle on the device agent, so the cap protects the agent from a client that opens many uploads and
+// never finishes them.
+const maxConcurrentUploads = 16
+
+// uploadState tracks an in-flight upload between its begin message and its EOF chunk. Bytes are written to tempPath
+// and only moved onto finalPath (atomically) once the EOF chunk closes the file successfully, so an interrupted or
+// failed upload never truncates or destroys the pre-existing destination file.
 type uploadState struct {
 	file        *sftp.File
-	path        string
+	tempPath    string
+	finalPath   string
 	size        int64
 	transferred int64
 }
@@ -148,6 +157,10 @@ func decodeSftpRequest(kind messageKind, data json.RawMessage) (any, error) {
 		value = payload
 	case messageKindSftpUploadChunk:
 		var payload SftpUploadChunkRequest
+		err = json.Unmarshal(data, &payload)
+		value = payload
+	case messageKindSftpCancel:
+		var payload SftpRequestID
 		err = json.Unmarshal(data, &payload)
 		value = payload
 	default:
@@ -291,8 +304,11 @@ func serveSFTP(conn *Conn, client *sftp.Client, logger *log.Entry) error {
 	uploads := map[string]*uploadState{}
 
 	defer func() {
+		// Any upload still in-flight when the session ends never received its EOF, so its temp file must be
+		// closed and removed — never promoted onto the destination — leaving the original file intact.
 		for _, upload := range uploads {
-			upload.file.Close() //nolint:errcheck
+			upload.file.Close()            //nolint:errcheck
+			client.Remove(upload.tempPath) //nolint:errcheck
 		}
 	}()
 
@@ -329,7 +345,9 @@ func serveSFTP(conn *Conn, client *sftp.Client, logger *log.Entry) error {
 		case messageKindSftpUpload:
 			handleUploadBegin(conn, client, message.Data.(SftpUploadRequest), uploads)
 		case messageKindSftpUploadChunk:
-			handleUploadChunk(conn, message.Data.(SftpUploadChunkRequest), uploads)
+			handleUploadChunk(conn, client, message.Data.(SftpUploadChunkRequest), uploads)
+		case messageKindSftpCancel:
+			handleCancel(conn, client, message.Data.(SftpRequestID), uploads)
 		default:
 			// Server -> client kinds must never arrive inbound; ignore defensively.
 		}
@@ -456,17 +474,27 @@ func handleDownload(conn *Conn, client *sftp.Client, target, requestID string, l
 
 	defer file.Close() //nolint:errcheck
 
-	var (
-		size  int64
-		mode  string
-		mtime int64
-	)
+	// Reject anything that is not a regular file. A directory handle, a FIFO, or a character device such as
+	// /dev/zero would otherwise stream without ever returning io.EOF and — because the dispatch loop services one
+	// message at a time — would wedge the whole session with no way to recover but tearing down the socket.
+	info, err := file.Stat()
+	if err != nil {
+		writeSftpError(conn, requestID, errors.Join(ErrSftpOpen, err))
 
-	if info, err := file.Stat(); err == nil {
-		size = info.Size()
-		mode = info.Mode().String()
-		mtime = info.ModTime().Unix()
+		return
 	}
+
+	if !info.Mode().IsRegular() {
+		writeSftpError(conn, requestID, errors.Join(ErrSftpOp, errors.New("not a regular file")))
+
+		return
+	}
+
+	var (
+		size  = info.Size()
+		mode  = info.Mode().String()
+		mtime = info.ModTime().Unix()
+	)
 
 	if _, err := conn.WriteMessage(&Message{
 		Kind: messageKindSftpDownloadBegin,
@@ -517,18 +545,44 @@ func handleDownload(conn *Conn, client *sftp.Client, target, requestID string, l
 }
 
 func handleUploadBegin(conn *Conn, client *sftp.Client, request SftpUploadRequest, uploads map[string]*uploadState) {
-	// Create truncates any existing file (pkg/sftp opens O_RDWR|O_CREATE|O_TRUNC).
-	file, err := client.Create(request.Path)
+	// A duplicate requestId would otherwise overwrite the map entry and orphan the previous open handle, so abort
+	// any existing upload under the same id first.
+	if old, ok := uploads[request.RequestID]; ok {
+		old.file.Close()            //nolint:errcheck
+		client.Remove(old.tempPath) //nolint:errcheck
+		delete(uploads, request.RequestID)
+	}
+
+	// Cap the number of concurrent in-flight uploads so a client cannot pin an unbounded number of agent file
+	// handles by opening uploads it never finishes.
+	if len(uploads) >= maxConcurrentUploads {
+		writeSftpError(conn, request.RequestID, errors.Join(ErrSftpOp, errors.New("too many concurrent uploads")))
+
+		return
+	}
+
+	// Write into a sibling temp file rather than the destination itself. pkg/sftp's Create opens
+	// O_RDWR|O_CREATE|O_TRUNC, so opening the destination directly would truncate the user's existing file the
+	// instant the upload starts — any later interruption would leave them with a partial/empty file. Staging in a
+	// temp file and renaming on success keeps the original intact until the transfer completes.
+	tempPath := uploadTempPath(request.Path, request.RequestID)
+
+	file, err := client.Create(tempPath)
 	if err != nil {
 		writeSftpError(conn, request.RequestID, errors.Join(ErrSftpOpen, err))
 
 		return
 	}
 
-	uploads[request.RequestID] = &uploadState{file: file, path: request.Path, size: request.Size}
+	uploads[request.RequestID] = &uploadState{
+		file:      file,
+		tempPath:  tempPath,
+		finalPath: request.Path,
+		size:      request.Size,
+	}
 }
 
-func handleUploadChunk(conn *Conn, request SftpUploadChunkRequest, uploads map[string]*uploadState) {
+func handleUploadChunk(conn *Conn, client *sftp.Client, request SftpUploadChunkRequest, uploads map[string]*uploadState) {
 	state, ok := uploads[request.RequestID]
 	if !ok {
 		writeSftpError(conn, request.RequestID, errors.Join(ErrSftpOp, errors.New("upload session not found")))
@@ -539,13 +593,20 @@ func handleUploadChunk(conn *Conn, request SftpUploadChunkRequest, uploads map[s
 	if request.Data != "" {
 		raw, err := base64.StdEncoding.DecodeString(request.Data)
 		if err != nil {
-			abortUpload(conn, uploads, request.RequestID, err)
+			abortUpload(conn, client, uploads, request.RequestID, err)
+
+			return
+		}
+
+		// Enforce the announced size so a client cannot stream unbounded bytes past what it declared.
+		if state.size >= 0 && state.transferred+int64(len(raw)) > state.size {
+			abortUpload(conn, client, uploads, request.RequestID, errors.Join(ErrSftpOp, errors.New("upload exceeded declared size")))
 
 			return
 		}
 
 		if _, err := state.file.Write(raw); err != nil {
-			abortUpload(conn, uploads, request.RequestID, err)
+			abortUpload(conn, client, uploads, request.RequestID, err)
 
 			return
 		}
@@ -558,11 +619,22 @@ func handleUploadChunk(conn *Conn, request SftpUploadChunkRequest, uploads map[s
 	}
 
 	if request.EOF {
-		err := state.file.Close()
+		closeErr := state.file.Close()
 		delete(uploads, request.RequestID)
 
-		if err != nil {
-			writeSftpError(conn, request.RequestID, err)
+		if closeErr != nil {
+			client.Remove(state.tempPath) //nolint:errcheck
+			writeSftpError(conn, request.RequestID, closeErr)
+
+			return
+		}
+
+		// Atomically move the fully-written temp file onto the destination. The agent runs pkg/sftp's server,
+		// whose rename is os.Rename, so this overwrites any existing file in a single step. On failure the temp
+		// file is removed and the destination is left untouched.
+		if err := client.Rename(state.tempPath, state.finalPath); err != nil {
+			client.Remove(state.tempPath) //nolint:errcheck
+			writeSftpError(conn, request.RequestID, errors.Join(ErrSftpOp, err))
 
 			return
 		}
@@ -571,14 +643,50 @@ func handleUploadChunk(conn *Conn, request SftpUploadChunkRequest, uploads map[s
 	}
 }
 
-// abortUpload closes and forgets a failed upload, then reports the error.
-func abortUpload(conn *Conn, uploads map[string]*uploadState, requestID string, err error) {
+// handleCancel aborts an in-flight upload identified by requestId, closing and removing its temp file so the
+// destination is left untouched. Downloads stream synchronously and finish on their own, so a cancel that does not
+// match an active upload is a no-op.
+func handleCancel(conn *Conn, client *sftp.Client, request SftpRequestID, uploads map[string]*uploadState) {
+	if _, ok := uploads[request.RequestID]; ok {
+		abortUpload(conn, client, uploads, request.RequestID, errors.Join(ErrSftpOp, errors.New("upload canceled")))
+	}
+}
+
+// abortUpload closes and forgets a failed upload, removes its temp file so no partial artefact is left behind, then
+// reports the error.
+func abortUpload(conn *Conn, client *sftp.Client, uploads map[string]*uploadState, requestID string, err error) {
 	if state, ok := uploads[requestID]; ok {
-		state.file.Close() //nolint:errcheck
+		state.file.Close()            //nolint:errcheck
+		client.Remove(state.tempPath) //nolint:errcheck
 		delete(uploads, requestID)
 	}
 
 	writeSftpError(conn, requestID, err)
+}
+
+// uploadTempPath derives a hidden, per-request temp file path in the destination's directory (so the final rename is
+// same-filesystem and therefore atomic). The requestId is sanitised to keep the temp name within that directory.
+func uploadTempPath(target, requestID string) string {
+	return path.Join(path.Dir(target), "."+path.Base(target)+".shellhub-"+sanitizeID(requestID)+".part")
+}
+
+// sanitizeID reduces an arbitrary client-supplied requestId to a filename-safe token so it cannot alter the temp
+// file's directory.
+func sanitizeID(id string) string {
+	safe := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-':
+			return r
+		default:
+			return '_'
+		}
+	}, id)
+
+	if safe == "" {
+		return "upload"
+	}
+
+	return safe
 }
 
 // fileInfoToEntry converts an [os.FileInfo] into a [FileEntry], resolving symlink targets best-effort.

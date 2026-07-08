@@ -47,6 +47,10 @@ const (
 	messageKindSftpProgress // 17
 	// messageKindSftpError reports a per-operation failure. Data: SftpError.
 	messageKindSftpError // 18
+	// messageKindSftpCancel aborts an in-flight transfer identified by requestId (client->server). It is used to
+	// cancel an upload (the gateway closes and removes the temp file so the destination is untouched). Data:
+	// SftpRequestID.
+	messageKindSftpCancel // 19
 )
 
 // MessageMinSize is the minimum size of a message in bytes. This is used to validate if the message is valid.

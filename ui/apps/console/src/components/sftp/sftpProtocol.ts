@@ -23,6 +23,8 @@ export const SFTP_KIND = {
   DOWNLOAD_END: 16,
   PROGRESS: 17,
   SFTP_ERROR: 18,
+  // Client -> server: abort an in-flight transfer (currently used to cancel an upload) by requestId.
+  CANCEL: 19,
 } as const;
 
 export type SftpOp = "list" | "stat" | "mkdir" | "rename" | "remove" | "upload";

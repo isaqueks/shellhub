@@ -13,7 +13,7 @@ import {
 import { Button, IconButton } from "@shellhub/design-system/primitives";
 import { generateRandomUUID } from "@/utils/random-uuid";
 import { useSftpStore, type SftpSession } from "@/stores/sftpStore";
-import { SftpClient, SftpOpError } from "@/api/sftpClient";
+import { SftpClient, SftpOpError, type DownloadSink } from "@/api/sftpClient";
 import type { FileEntry, SftpProgress, SftpTransfer } from "./sftpProtocol";
 import {
   HTTP_CONNECT_ERROR,
@@ -25,6 +25,20 @@ import FileTable from "./FileTable";
 import TransferList from "./TransferList";
 import UploadDropzone from "./UploadDropzone";
 import SftpErrorBanner from "./SftpErrorBanner";
+
+/** Files at or above this size stream straight to disk (via a save dialog) instead of buffering in memory. */
+const STREAM_TO_DISK_THRESHOLD = 256 * 1024 * 1024;
+
+/** Shown when a healthy session drops unexpectedly, with a reconnect affordance. */
+const SFTP_DISCONNECT_ERROR: TerminalError = {
+  title: "Connection lost",
+  message: "The connection to the device was interrupted.",
+  reconnect: true,
+  hints: [
+    "The device may have gone offline or the network dropped. Reconnect to continue browsing.",
+  ],
+  links: [],
+};
 
 /** POSIX path helpers — the remote filesystem always uses forward slashes. */
 function joinPath(dir: string, name: string): string {
@@ -49,6 +63,48 @@ function saveBlob(blob: Blob, name: string): void {
   URL.revokeObjectURL(url);
 }
 
+function isCanceled(err: unknown): boolean {
+  return err instanceof SftpOpError && err.code === "canceled";
+}
+
+// Minimal shapes for the File System Access API (not in the default TS DOM lib).
+interface FileSystemWritableLike {
+  write(data: ArrayBuffer): Promise<void>;
+  close(): Promise<void>;
+  abort?(): Promise<void>;
+}
+interface FileSystemFileHandleLike {
+  createWritable(): Promise<FileSystemWritableLike>;
+}
+
+/**
+ * Returns a sink that streams download bytes straight to a file the user picks, so large files never have to be held
+ * in memory. Returns undefined when the browser lacks the File System Access API (caller falls back to a Blob).
+ * Throws (AbortError) when the user dismisses the save dialog.
+ */
+async function createFileSink(
+  suggestedName: string,
+): Promise<DownloadSink | undefined> {
+  const picker = (
+    window as unknown as {
+      showSaveFilePicker?: (opts: {
+        suggestedName?: string;
+      }) => Promise<FileSystemFileHandleLike>;
+    }
+  ).showSaveFilePicker;
+  if (!picker) return undefined;
+
+  const handle = await picker({ suggestedName });
+  const writable = await handle.createWritable();
+  return {
+    write: (chunk) => writable.write(chunk),
+    close: () => writable.close(),
+    abort: () => {
+      void writable.abort?.().catch(() => undefined);
+    },
+  };
+}
+
 export default function SftpInstance({
   session,
 }: {
@@ -64,18 +120,32 @@ export default function SftpInstance({
   const [transfers, setTransfers] = useState<SftpTransfer[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Latest cwd for async completion callbacks, so an operation finishing after the user has navigated away does not
+  // reload (and snap back to) the directory it started in.
+  const cwdRef = useRef(cwd);
+  useEffect(() => {
+    cwdRef.current = cwd;
+  }, [cwd]);
+
+  // AbortControllers for in-flight transfers, keyed by their UI transfer id, so a transfer can be cancelled.
+  const transferControllers = useRef(new Map<string, AbortController>());
+
   const { minimize, toggleFullscreen, close } = useSftpStore();
   const isFullscreen = session.state === "fullscreen";
 
-  const upsertTransfer = useCallback((transfer: SftpTransfer) => {
-    setTransfers((prev) => {
-      const idx = prev.findIndex((t) => t.id === transfer.id);
-      if (idx === -1) return [...prev, transfer];
-      const next = [...prev];
-      next[idx] = transfer;
-      return next;
-    });
+  const addTransfer = useCallback((transfer: SftpTransfer) => {
+    setTransfers((prev) => [...prev, transfer]);
   }, []);
+
+  // Patch an existing transfer only — never resurrect one the user has dismissed.
+  const patchTransfer = useCallback(
+    (id: string, patch: Partial<SftpTransfer>) => {
+      setTransfers((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+      );
+    },
+    [],
+  );
 
   const loadDir = useCallback(
     async (path: string, client?: SftpClient) => {
@@ -103,6 +173,8 @@ export default function SftpInstance({
   // Connect on mount; tear down on unmount.
   useEffect(() => {
     let cancelled = false;
+    // Stable across the component's life (the ref holds one Map), captured for use in the cleanup below.
+    const controllers = transferControllers.current;
 
     const client = new SftpClient({
       onStatus: (status) => {
@@ -110,6 +182,10 @@ export default function SftpInstance({
       },
       onFatal: (raw) => {
         if (!cancelled) setError(resolveError(raw, session.deviceUid));
+      },
+      onClose: () => {
+        // Unexpected mid-session drop: surface a reconnectable banner (a clean close() never fires this).
+        if (!cancelled) setError((prev) => prev ?? SFTP_DISCONNECT_ERROR);
       },
     });
     clientRef.current = client;
@@ -136,6 +212,11 @@ export default function SftpInstance({
 
     return () => {
       cancelled = true;
+      // Abort any in-flight transfers so their loops/streams stop, then tear down the socket.
+      for (const controller of controllers.values()) {
+        controller.abort();
+      }
+      controllers.clear();
       client.close();
       clientRef.current = null;
       useSftpStore.getState().clearSensitiveData(session.id);
@@ -160,9 +241,12 @@ export default function SftpInstance({
     if (!client) return;
     const name = window.prompt("New folder name");
     if (!name) return;
+    const targetDir = cwd;
     void client
-      .mkdir(joinPath(cwd, name.trim()))
-      .then(() => loadDir(cwd))
+      .mkdir(joinPath(targetDir, name.trim()))
+      .then(() => {
+        if (cwdRef.current === targetDir) void loadDir(targetDir);
+      })
       .catch((err: unknown) =>
         setNotice(
           err instanceof SftpOpError
@@ -178,9 +262,12 @@ export default function SftpInstance({
       if (!client) return;
       const name = window.prompt("Rename to", entry.name);
       if (!name || name === entry.name) return;
+      const targetDir = cwd;
       void client
         .rename(entry.path, joinPath(dirName(entry.path), name.trim()))
-        .then(() => loadDir(cwd))
+        .then(() => {
+          if (cwdRef.current === targetDir) void loadDir(targetDir);
+        })
         .catch((err: unknown) =>
           setNotice(
             err instanceof SftpOpError
@@ -199,9 +286,12 @@ export default function SftpInstance({
       if (!window.confirm(`Delete "${entry.name}"?${entry.isDir ? " This removes its contents." : ""}`)) {
         return;
       }
+      const targetDir = cwd;
       void client
         .remove(entry.path, entry.isDir)
-        .then(() => loadDir(cwd))
+        .then(() => {
+          if (cwdRef.current === targetDir) void loadDir(targetDir);
+        })
         .catch((err: unknown) =>
           setNotice(
             err instanceof SftpOpError
@@ -213,60 +303,86 @@ export default function SftpInstance({
     [cwd, loadDir],
   );
 
-  const handleDownload = useCallback((entry: FileEntry) => {
-    const client = clientRef.current;
-    if (!client) return;
-    const id = generateRandomUUID();
-    upsertTransfer({
-      id,
-      name: entry.name,
-      direction: "download",
-      transferred: 0,
-      total: entry.size,
-      status: "active",
-    });
-    void client
-      .download(entry.path, (progress: SftpProgress) =>
-        upsertTransfer({
-          id,
-          name: entry.name,
-          direction: "download",
-          transferred: progress.transferred,
-          total: progress.total || entry.size,
-          status: "active",
-        }),
-      )
-      .then(({ blob, name }) => {
-        saveBlob(blob, name);
-        upsertTransfer({
-          id,
-          name: entry.name,
-          direction: "download",
-          transferred: blob.size,
-          total: blob.size,
-          status: "done",
-        });
-      })
-      .catch((err: unknown) =>
-        upsertTransfer({
-          id,
-          name: entry.name,
-          direction: "download",
-          transferred: 0,
-          total: entry.size,
-          status: "error",
-          error: err instanceof Error ? err.message : "download failed",
-        }),
-      );
-  }, [upsertTransfer]);
+  const handleDownload = useCallback(
+    (entry: FileEntry) => {
+      const client = clientRef.current;
+      if (!client) return;
+      const id = generateRandomUUID();
+      const controller = new AbortController();
+      transferControllers.current.set(id, controller);
+      addTransfer({
+        id,
+        name: entry.name,
+        direction: "download",
+        transferred: 0,
+        total: entry.size,
+        status: "active",
+      });
+
+      void (async () => {
+        // Stream large files straight to disk so the tab does not have to buffer the whole file in memory.
+        let sink: DownloadSink | undefined;
+        if (entry.size >= STREAM_TO_DISK_THRESHOLD) {
+          try {
+            sink = await createFileSink(entry.name);
+          } catch {
+            // User dismissed the save dialog — cancel the download entirely.
+            controller.abort();
+            transferControllers.current.delete(id);
+            setTransfers((prev) => prev.filter((t) => t.id !== id));
+            return;
+          }
+        }
+
+        try {
+          const { blob, name } = await client.download(entry.path, {
+            signal: controller.signal,
+            sink,
+            onProgress: (progress: SftpProgress) =>
+              patchTransfer(id, {
+                transferred: progress.transferred,
+                total: progress.total || entry.size,
+              }),
+          });
+          if (blob) saveBlob(blob, name);
+          patchTransfer(id, {
+            transferred: entry.size,
+            total: entry.size,
+            status: "done",
+          });
+        } catch (err) {
+          if (isCanceled(err)) {
+            setTransfers((prev) => prev.filter((t) => t.id !== id));
+          } else {
+            patchTransfer(id, {
+              status: "error",
+              error: err instanceof Error ? err.message : "download failed",
+            });
+          }
+        } finally {
+          transferControllers.current.delete(id);
+        }
+      })();
+    },
+    [addTransfer, patchTransfer],
+  );
 
   const handleFiles = useCallback(
     (files: File[]) => {
       const client = clientRef.current;
       if (!client) return;
+      const targetDir = cwd;
       for (const file of files) {
+        // Confirm before clobbering an existing file of the same name.
+        const clashes = entries.some((e) => !e.isDir && e.name === file.name);
+        if (clashes && !window.confirm(`"${file.name}" already exists here. Replace it?`)) {
+          continue;
+        }
+
         const id = generateRandomUUID();
-        upsertTransfer({
+        const controller = new AbortController();
+        transferControllers.current.set(id, controller);
+        addTransfer({
           id,
           name: file.name,
           direction: "upload",
@@ -275,41 +391,36 @@ export default function SftpInstance({
           status: "active",
         });
         void client
-          .upload(joinPath(cwd, file.name), file, (progress: SftpProgress) =>
-            upsertTransfer({
-              id,
-              name: file.name,
-              direction: "upload",
-              transferred: progress.transferred,
-              total: progress.total || file.size,
-              status: "active",
-            }),
-          )
+          .upload(joinPath(targetDir, file.name), file, {
+            signal: controller.signal,
+            onProgress: (progress: SftpProgress) =>
+              patchTransfer(id, {
+                transferred: progress.transferred,
+                total: progress.total || file.size,
+              }),
+          })
           .then(() => {
-            upsertTransfer({
-              id,
-              name: file.name,
-              direction: "upload",
+            patchTransfer(id, {
               transferred: file.size,
               total: file.size,
               status: "done",
             });
-            void loadDir(cwd);
+            if (cwdRef.current === targetDir) void loadDir(targetDir);
           })
-          .catch((err: unknown) =>
-            upsertTransfer({
-              id,
-              name: file.name,
-              direction: "upload",
-              transferred: 0,
-              total: file.size,
-              status: "error",
-              error: err instanceof Error ? err.message : "upload failed",
-            }),
-          );
+          .catch((err: unknown) => {
+            if (isCanceled(err)) {
+              setTransfers((prev) => prev.filter((t) => t.id !== id));
+            } else {
+              patchTransfer(id, {
+                status: "error",
+                error: err instanceof Error ? err.message : "upload failed",
+              });
+            }
+          })
+          .finally(() => transferControllers.current.delete(id));
       }
     },
-    [cwd, loadDir, upsertTransfer],
+    [cwd, entries, loadDir, addTransfer, patchTransfer],
   );
 
   const onInputChange = useCallback(
@@ -321,10 +432,16 @@ export default function SftpInstance({
     [handleFiles],
   );
 
-  const dismissTransfer = useCallback(
-    (id: string) => setTransfers((prev) => prev.filter((t) => t.id !== id)),
-    [],
-  );
+  const dismissTransfer = useCallback((id: string) => {
+    // Cancelling an active transfer aborts it (uploads stop sending and the server drops the temp file; downloads
+    // stop saving). Finished rows are simply removed.
+    const controller = transferControllers.current.get(id);
+    if (controller) {
+      controller.abort();
+      transferControllers.current.delete(id);
+    }
+    setTransfers((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const handleReconnect = useCallback(() => {
     const store = useSftpStore.getState();
@@ -334,6 +451,12 @@ export default function SftpInstance({
 
   const status = session.connectionStatus;
   const isConnected = status === "connected";
+  // A download blocks the gateway's single-threaded dispatch loop, so other operations would silently queue behind
+  // it. Pause interactions while one is active and tell the user why, instead of appearing frozen.
+  const downloading = transfers.some(
+    (t) => t.direction === "download" && t.status === "active",
+  );
+  const canInteract = isConnected && !downloading;
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -399,12 +522,12 @@ export default function SftpInstance({
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2 h-11 px-3 border-b border-border bg-card shrink-0">
-        <Breadcrumb path={cwd} onNavigate={handleNavigate} />
+        <Breadcrumb path={cwd} onNavigate={canInteract ? handleNavigate : () => undefined} />
         <div className="flex items-center gap-1 shrink-0">
           <Button
             variant="ghost"
             onClick={handleNewFolder}
-            disabled={!isConnected}
+            disabled={!canInteract}
             icon={<FolderPlusIcon className="w-4 h-4" />}
           >
             New Folder
@@ -412,7 +535,7 @@ export default function SftpInstance({
           <Button
             variant="ghost"
             onClick={() => fileInputRef.current?.click()}
-            disabled={!isConnected}
+            disabled={!canInteract}
             icon={<ArrowUpTrayIcon className="w-4 h-4" />}
           >
             Upload
@@ -421,12 +544,21 @@ export default function SftpInstance({
             aria-label="Refresh"
             title="Refresh"
             onClick={refresh}
-            disabled={!isConnected}
+            disabled={!canInteract}
           >
             <ArrowPathIcon className="w-4 h-4" />
           </IconButton>
         </div>
       </div>
+
+      {downloading && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/[0.06] border-b border-primary/20 text-xs text-text-secondary">
+          <ArrowPathIcon className="w-3.5 h-3.5 shrink-0 animate-spin" />
+          <span className="flex-1 truncate">
+            Downloading… other actions are paused until the transfer finishes.
+          </span>
+        </div>
+      )}
 
       {notice && (
         <div className="flex items-center gap-2 px-3 py-2 bg-accent-red/[0.08] border-b border-accent-red/25 text-xs text-accent-red">
@@ -440,11 +572,12 @@ export default function SftpInstance({
 
       {/* Content */}
       <div className="relative flex-1 min-h-0">
-        <UploadDropzone onFiles={handleFiles} disabled={!isConnected}>
+        <UploadDropzone onFiles={handleFiles} disabled={!canInteract}>
           <div className="h-full overflow-y-auto">
             <FileTable
               entries={entries}
               loading={loading}
+              disabled={downloading}
               onOpenDir={handleOpenDir}
               onDownload={handleDownload}
               onRename={handleRename}

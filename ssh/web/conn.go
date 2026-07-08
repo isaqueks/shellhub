@@ -130,7 +130,7 @@ func (c *Conn) ReadMessage(message *Message) (int, error) {
 		message.Data = sig
 	case messageKindSftpList, messageKindSftpStat, messageKindSftpMkdir,
 		messageKindSftpRename, messageKindSftpRemove, messageKindSftpDownload,
-		messageKindSftpUpload, messageKindSftpUploadChunk:
+		messageKindSftpUpload, messageKindSftpUploadChunk, messageKindSftpCancel:
 		// NOTE: SFTP request payloads are structured objects (see sftp.go). They are NOT subject to the
 		// [TermniosMaxLineLength] rune cap applied to terminal input above; upload chunks are base64 blobs bounded
 		// only by [SftpReadMessageBufferSize].
