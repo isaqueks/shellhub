@@ -4263,3 +4263,332 @@ func (_c *MockService_UpdateUser_Call) RunAndReturn(run func(ctx context.Context
 	_c.Call.Return(run)
 	return _c
 }
+
+// GetVault provides a mock function for the type MockService
+func (_mock *MockService) GetVault(ctx context.Context, req *requests.VaultGet) (*responses.Vault, error) {
+	ret := _mock.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetVault")
+	}
+
+	var r0 *responses.Vault
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *requests.VaultGet) (*responses.Vault, error)); ok {
+		return returnFunc(ctx, req)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *requests.VaultGet) *responses.Vault); ok {
+		r0 = returnFunc(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*responses.Vault)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *requests.VaultGet) error); ok {
+		r1 = returnFunc(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_GetVault_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetVault'
+type MockService_GetVault_Call struct {
+	*mock.Call
+}
+
+// GetVault is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *requests.VaultGet
+func (_e *MockService_Expecter) GetVault(ctx any, req any) *MockService_GetVault_Call {
+	return &MockService_GetVault_Call{Call: _e.mock.On("GetVault", ctx, req)}
+}
+
+func (_c *MockService_GetVault_Call) Run(run func(ctx context.Context, req *requests.VaultGet)) *MockService_GetVault_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *requests.VaultGet
+		if args[1] != nil {
+			arg1 = args[1].(*requests.VaultGet)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_GetVault_Call) Return(vault *responses.Vault, err error) *MockService_GetVault_Call {
+	_c.Call.Return(vault, err)
+	return _c
+}
+
+func (_c *MockService_GetVault_Call) RunAndReturn(run func(ctx context.Context, req *requests.VaultGet) (*responses.Vault, error)) *MockService_GetVault_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SaveVaultMeta provides a mock function for the type MockService
+func (_mock *MockService) SaveVaultMeta(ctx context.Context, req *requests.SaveVaultMeta) (*responses.VaultVersion, error) {
+	ret := _mock.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveVaultMeta")
+	}
+
+	var r0 *responses.VaultVersion
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *requests.SaveVaultMeta) (*responses.VaultVersion, error)); ok {
+		return returnFunc(ctx, req)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *requests.SaveVaultMeta) *responses.VaultVersion); ok {
+		r0 = returnFunc(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*responses.VaultVersion)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *requests.SaveVaultMeta) error); ok {
+		r1 = returnFunc(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_SaveVaultMeta_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveVaultMeta'
+type MockService_SaveVaultMeta_Call struct {
+	*mock.Call
+}
+
+// SaveVaultMeta is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *requests.SaveVaultMeta
+func (_e *MockService_Expecter) SaveVaultMeta(ctx any, req any) *MockService_SaveVaultMeta_Call {
+	return &MockService_SaveVaultMeta_Call{Call: _e.mock.On("SaveVaultMeta", ctx, req)}
+}
+
+func (_c *MockService_SaveVaultMeta_Call) Run(run func(ctx context.Context, req *requests.SaveVaultMeta)) *MockService_SaveVaultMeta_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *requests.SaveVaultMeta
+		if args[1] != nil {
+			arg1 = args[1].(*requests.SaveVaultMeta)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_SaveVaultMeta_Call) Return(vaultVersion *responses.VaultVersion, err error) *MockService_SaveVaultMeta_Call {
+	_c.Call.Return(vaultVersion, err)
+	return _c
+}
+
+func (_c *MockService_SaveVaultMeta_Call) RunAndReturn(run func(ctx context.Context, req *requests.SaveVaultMeta) (*responses.VaultVersion, error)) *MockService_SaveVaultMeta_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SaveVaultData provides a mock function for the type MockService
+func (_mock *MockService) SaveVaultData(ctx context.Context, req *requests.SaveVaultData) (*responses.VaultVersion, error) {
+	ret := _mock.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveVaultData")
+	}
+
+	var r0 *responses.VaultVersion
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *requests.SaveVaultData) (*responses.VaultVersion, error)); ok {
+		return returnFunc(ctx, req)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *requests.SaveVaultData) *responses.VaultVersion); ok {
+		r0 = returnFunc(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*responses.VaultVersion)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *requests.SaveVaultData) error); ok {
+		r1 = returnFunc(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_SaveVaultData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveVaultData'
+type MockService_SaveVaultData_Call struct {
+	*mock.Call
+}
+
+// SaveVaultData is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *requests.SaveVaultData
+func (_e *MockService_Expecter) SaveVaultData(ctx any, req any) *MockService_SaveVaultData_Call {
+	return &MockService_SaveVaultData_Call{Call: _e.mock.On("SaveVaultData", ctx, req)}
+}
+
+func (_c *MockService_SaveVaultData_Call) Run(run func(ctx context.Context, req *requests.SaveVaultData)) *MockService_SaveVaultData_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *requests.SaveVaultData
+		if args[1] != nil {
+			arg1 = args[1].(*requests.SaveVaultData)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_SaveVaultData_Call) Return(vaultVersion *responses.VaultVersion, err error) *MockService_SaveVaultData_Call {
+	_c.Call.Return(vaultVersion, err)
+	return _c
+}
+
+func (_c *MockService_SaveVaultData_Call) RunAndReturn(run func(ctx context.Context, req *requests.SaveVaultData) (*responses.VaultVersion, error)) *MockService_SaveVaultData_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SaveVaultSettings provides a mock function for the type MockService
+func (_mock *MockService) SaveVaultSettings(ctx context.Context, req *requests.SaveVaultSettings) (*responses.VaultVersion, error) {
+	ret := _mock.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveVaultSettings")
+	}
+
+	var r0 *responses.VaultVersion
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *requests.SaveVaultSettings) (*responses.VaultVersion, error)); ok {
+		return returnFunc(ctx, req)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *requests.SaveVaultSettings) *responses.VaultVersion); ok {
+		r0 = returnFunc(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*responses.VaultVersion)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *requests.SaveVaultSettings) error); ok {
+		r1 = returnFunc(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_SaveVaultSettings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveVaultSettings'
+type MockService_SaveVaultSettings_Call struct {
+	*mock.Call
+}
+
+// SaveVaultSettings is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *requests.SaveVaultSettings
+func (_e *MockService_Expecter) SaveVaultSettings(ctx any, req any) *MockService_SaveVaultSettings_Call {
+	return &MockService_SaveVaultSettings_Call{Call: _e.mock.On("SaveVaultSettings", ctx, req)}
+}
+
+func (_c *MockService_SaveVaultSettings_Call) Run(run func(ctx context.Context, req *requests.SaveVaultSettings)) *MockService_SaveVaultSettings_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *requests.SaveVaultSettings
+		if args[1] != nil {
+			arg1 = args[1].(*requests.SaveVaultSettings)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_SaveVaultSettings_Call) Return(vaultVersion *responses.VaultVersion, err error) *MockService_SaveVaultSettings_Call {
+	_c.Call.Return(vaultVersion, err)
+	return _c
+}
+
+func (_c *MockService_SaveVaultSettings_Call) RunAndReturn(run func(ctx context.Context, req *requests.SaveVaultSettings) (*responses.VaultVersion, error)) *MockService_SaveVaultSettings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteVault provides a mock function for the type MockService
+func (_mock *MockService) DeleteVault(ctx context.Context, req *requests.VaultDelete) error {
+	ret := _mock.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteVault")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *requests.VaultDelete) error); ok {
+		r0 = returnFunc(ctx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_DeleteVault_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteVault'
+type MockService_DeleteVault_Call struct {
+	*mock.Call
+}
+
+// DeleteVault is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *requests.VaultDelete
+func (_e *MockService_Expecter) DeleteVault(ctx any, req any) *MockService_DeleteVault_Call {
+	return &MockService_DeleteVault_Call{Call: _e.mock.On("DeleteVault", ctx, req)}
+}
+
+func (_c *MockService_DeleteVault_Call) Run(run func(ctx context.Context, req *requests.VaultDelete)) *MockService_DeleteVault_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *requests.VaultDelete
+		if args[1] != nil {
+			arg1 = args[1].(*requests.VaultDelete)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_DeleteVault_Call) Return(err error) *MockService_DeleteVault_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_DeleteVault_Call) RunAndReturn(run func(ctx context.Context, req *requests.VaultDelete) error) *MockService_DeleteVault_Call {
+	_c.Call.Return(run)
+	return _c
+}

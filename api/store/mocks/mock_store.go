@@ -4638,3 +4638,386 @@ func (_c *MockStore_WithTransaction_Call) RunAndReturn(run func(ctx context.Cont
 	_c.Call.Return(run)
 	return _c
 }
+
+// VaultGet provides a mock function for the type MockStore
+func (_mock *MockStore) VaultGet(ctx context.Context, userID string, tenantID string) (*models.Vault, error) {
+	ret := _mock.Called(ctx, userID, tenantID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VaultGet")
+	}
+
+	var r0 *models.Vault
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*models.Vault, error)); ok {
+		return returnFunc(ctx, userID, tenantID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *models.Vault); ok {
+		r0 = returnFunc(ctx, userID, tenantID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.Vault)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, userID, tenantID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_VaultGet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VaultGet'
+type MockStore_VaultGet_Call struct {
+	*mock.Call
+}
+
+// VaultGet is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - tenantID string
+func (_e *MockStore_Expecter) VaultGet(ctx any, userID any, tenantID any) *MockStore_VaultGet_Call {
+	return &MockStore_VaultGet_Call{Call: _e.mock.On("VaultGet", ctx, userID, tenantID)}
+}
+
+func (_c *MockStore_VaultGet_Call) Run(run func(ctx context.Context, userID string, tenantID string)) *MockStore_VaultGet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_VaultGet_Call) Return(vault *models.Vault, err error) *MockStore_VaultGet_Call {
+	_c.Call.Return(vault, err)
+	return _c
+}
+
+func (_c *MockStore_VaultGet_Call) RunAndReturn(run func(ctx context.Context, userID string, tenantID string) (*models.Vault, error)) *MockStore_VaultGet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// VaultSaveMeta provides a mock function for the type MockStore
+func (_mock *MockStore) VaultSaveMeta(ctx context.Context, userID string, tenantID string, meta string) (*models.Vault, error) {
+	ret := _mock.Called(ctx, userID, tenantID, meta)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VaultSaveMeta")
+	}
+
+	var r0 *models.Vault
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) (*models.Vault, error)); ok {
+		return returnFunc(ctx, userID, tenantID, meta)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) *models.Vault); ok {
+		r0 = returnFunc(ctx, userID, tenantID, meta)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.Vault)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = returnFunc(ctx, userID, tenantID, meta)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_VaultSaveMeta_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VaultSaveMeta'
+type MockStore_VaultSaveMeta_Call struct {
+	*mock.Call
+}
+
+// VaultSaveMeta is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - tenantID string
+//   - meta string
+func (_e *MockStore_Expecter) VaultSaveMeta(ctx any, userID any, tenantID any, meta any) *MockStore_VaultSaveMeta_Call {
+	return &MockStore_VaultSaveMeta_Call{Call: _e.mock.On("VaultSaveMeta", ctx, userID, tenantID, meta)}
+}
+
+func (_c *MockStore_VaultSaveMeta_Call) Run(run func(ctx context.Context, userID string, tenantID string, meta string)) *MockStore_VaultSaveMeta_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_VaultSaveMeta_Call) Return(vault *models.Vault, err error) *MockStore_VaultSaveMeta_Call {
+	_c.Call.Return(vault, err)
+	return _c
+}
+
+func (_c *MockStore_VaultSaveMeta_Call) RunAndReturn(run func(ctx context.Context, userID string, tenantID string, meta string) (*models.Vault, error)) *MockStore_VaultSaveMeta_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// VaultSaveData provides a mock function for the type MockStore
+func (_mock *MockStore) VaultSaveData(ctx context.Context, userID string, tenantID string, data string, version uint64) (*models.Vault, error) {
+	ret := _mock.Called(ctx, userID, tenantID, data, version)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VaultSaveData")
+	}
+
+	var r0 *models.Vault
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string, uint64) (*models.Vault, error)); ok {
+		return returnFunc(ctx, userID, tenantID, data, version)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string, uint64) *models.Vault); ok {
+		r0 = returnFunc(ctx, userID, tenantID, data, version)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.Vault)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, string, uint64) error); ok {
+		r1 = returnFunc(ctx, userID, tenantID, data, version)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_VaultSaveData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VaultSaveData'
+type MockStore_VaultSaveData_Call struct {
+	*mock.Call
+}
+
+// VaultSaveData is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - tenantID string
+//   - data string
+//   - version uint64
+func (_e *MockStore_Expecter) VaultSaveData(ctx any, userID any, tenantID any, data any, version any) *MockStore_VaultSaveData_Call {
+	return &MockStore_VaultSaveData_Call{Call: _e.mock.On("VaultSaveData", ctx, userID, tenantID, data, version)}
+}
+
+func (_c *MockStore_VaultSaveData_Call) Run(run func(ctx context.Context, userID string, tenantID string, data string, version uint64)) *MockStore_VaultSaveData_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		var arg4 uint64
+		if args[4] != nil {
+			arg4 = args[4].(uint64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_VaultSaveData_Call) Return(vault *models.Vault, err error) *MockStore_VaultSaveData_Call {
+	_c.Call.Return(vault, err)
+	return _c
+}
+
+func (_c *MockStore_VaultSaveData_Call) RunAndReturn(run func(ctx context.Context, userID string, tenantID string, data string, version uint64) (*models.Vault, error)) *MockStore_VaultSaveData_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// VaultSaveSettings provides a mock function for the type MockStore
+func (_mock *MockStore) VaultSaveSettings(ctx context.Context, userID string, tenantID string, settings string) (*models.Vault, error) {
+	ret := _mock.Called(ctx, userID, tenantID, settings)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VaultSaveSettings")
+	}
+
+	var r0 *models.Vault
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) (*models.Vault, error)); ok {
+		return returnFunc(ctx, userID, tenantID, settings)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) *models.Vault); ok {
+		r0 = returnFunc(ctx, userID, tenantID, settings)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.Vault)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = returnFunc(ctx, userID, tenantID, settings)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_VaultSaveSettings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VaultSaveSettings'
+type MockStore_VaultSaveSettings_Call struct {
+	*mock.Call
+}
+
+// VaultSaveSettings is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - tenantID string
+//   - settings string
+func (_e *MockStore_Expecter) VaultSaveSettings(ctx any, userID any, tenantID any, settings any) *MockStore_VaultSaveSettings_Call {
+	return &MockStore_VaultSaveSettings_Call{Call: _e.mock.On("VaultSaveSettings", ctx, userID, tenantID, settings)}
+}
+
+func (_c *MockStore_VaultSaveSettings_Call) Run(run func(ctx context.Context, userID string, tenantID string, settings string)) *MockStore_VaultSaveSettings_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_VaultSaveSettings_Call) Return(vault *models.Vault, err error) *MockStore_VaultSaveSettings_Call {
+	_c.Call.Return(vault, err)
+	return _c
+}
+
+func (_c *MockStore_VaultSaveSettings_Call) RunAndReturn(run func(ctx context.Context, userID string, tenantID string, settings string) (*models.Vault, error)) *MockStore_VaultSaveSettings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// VaultDelete provides a mock function for the type MockStore
+func (_mock *MockStore) VaultDelete(ctx context.Context, userID string, tenantID string) error {
+	ret := _mock.Called(ctx, userID, tenantID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VaultDelete")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, userID, tenantID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStore_VaultDelete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VaultDelete'
+type MockStore_VaultDelete_Call struct {
+	*mock.Call
+}
+
+// VaultDelete is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - tenantID string
+func (_e *MockStore_Expecter) VaultDelete(ctx any, userID any, tenantID any) *MockStore_VaultDelete_Call {
+	return &MockStore_VaultDelete_Call{Call: _e.mock.On("VaultDelete", ctx, userID, tenantID)}
+}
+
+func (_c *MockStore_VaultDelete_Call) Run(run func(ctx context.Context, userID string, tenantID string)) *MockStore_VaultDelete_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_VaultDelete_Call) Return(err error) *MockStore_VaultDelete_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStore_VaultDelete_Call) RunAndReturn(run func(ctx context.Context, userID string, tenantID string) error) *MockStore_VaultDelete_Call {
+	_c.Call.Return(run)
+	return _c
+}

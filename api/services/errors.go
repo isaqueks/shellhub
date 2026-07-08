@@ -130,6 +130,8 @@ var (
 	ErrSameTags                        = errors.New("trying to update tags with the same content", ErrLayer, ErrCodeNoContentChange)
 	ErrAPIKeyNotFound                  = errors.New("APIKey not found", ErrLayer, ErrCodeNotFound)
 	ErrAPIKeyDuplicated                = errors.New("APIKey duplicated", ErrLayer, ErrCodeDuplicated)
+	ErrVaultNotFound                   = errors.New("vault not found", ErrLayer, ErrCodeNotFound)
+	ErrVaultConflict                   = errors.New("vault version conflict", ErrLayer, ErrCodeDuplicated)
 	ErrAuthForbidden                   = errors.New("user is authenticated but cannot access this resource", ErrLayer, ErrCodeForbidden)
 	ErrRoleForbidden                   = errors.New("role is forbidden", ErrLayer, ErrCodeForbidden)
 	ErrUserDelete                      = errors.New("user couldn't be deleted", ErrLayer, ErrCodeInvalid)
@@ -208,6 +210,17 @@ func NewErrAPIKeyInvalid(name string) error {
 // NewErrAPIKeyDuplicated returns an error when the APIKey name is duplicated.
 func NewErrAPIKeyDuplicated(conflicts []string) error {
 	return NewErrDuplicated(ErrAPIKeyDuplicated, conflicts, nil)
+}
+
+// NewErrVaultNotFound returns an error when the user's vault is not found in the namespace.
+func NewErrVaultNotFound(tenantID string, next error) error {
+	return NewErrNotFound(ErrVaultNotFound, tenantID, next)
+}
+
+// NewErrVaultConflict returns an error when a vault data write is rejected because its
+// version is stale (optimistic-concurrency conflict). It maps to HTTP 409.
+func NewErrVaultConflict(next error) error {
+	return NewErrDuplicated(ErrVaultConflict, nil, next)
 }
 
 // NewErrTagInvalid returns an error when the tag is invalid.

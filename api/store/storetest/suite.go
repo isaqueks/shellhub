@@ -101,6 +101,14 @@ func (s *Suite) Run(t *testing.T) {
 		s.TestPrivateKeyGet(t)
 	})
 
+	t.Run("VaultStore", func(t *testing.T) {
+		s.TestVaultSaveMetaAndGet(t)
+		s.TestVaultGetNotFound(t)
+		s.TestVaultSaveData(t)
+		s.TestVaultSaveSettings(t)
+		s.TestVaultDelete(t)
+	})
+
 	t.Run("MemberStore", func(t *testing.T) {
 		s.TestNamespaceCreateMembership(t)
 		s.TestNamespaceUpdateMembership(t)

@@ -102,6 +102,14 @@ func TestPgStore(t *testing.T) {
 		suite.TestPrivateKeyGet(t)
 	})
 
+	runSubSuite(t, "VaultStore", func(suite *storetest.Suite, t *testing.T) {
+		suite.TestVaultSaveMetaAndGet(t)
+		suite.TestVaultGetNotFound(t)
+		suite.TestVaultSaveData(t)
+		suite.TestVaultSaveSettings(t)
+		suite.TestVaultDelete(t)
+	})
+
 	runSubSuite(t, "MemberStore", func(suite *storetest.Suite, t *testing.T) {
 		suite.TestNamespaceCreateMembership(t)
 		suite.TestNamespaceUpdateMembership(t)

@@ -18,5 +18,6 @@ func Entities() []any {
 		(*System)(nil),
 		(*Tag)(nil),
 		(*User)(nil),
+		(*Vault)(nil),
 	}
 }

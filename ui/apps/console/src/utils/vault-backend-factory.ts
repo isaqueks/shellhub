@@ -18,12 +18,13 @@ function modeKey(scope?: VaultScope): string {
 }
 
 /**
- * Whether server-side vault storage is available in this deployment
- * (Cloud/Enterprise). Community Edition is always local.
+ * Whether server-side vault storage is available in this deployment. It is
+ * always available on Cloud/Enterprise; self-hosted Community deployments can
+ * opt in with SHELLHUB_VAULT_SERVER=true (surfaced as `config.vaultServer`).
  */
 export function isVaultServerEnabled(): boolean {
   const config = getConfig();
-  return config.cloud || config.enterprise;
+  return config.cloud || config.enterprise || config.vaultServer;
 }
 
 /**

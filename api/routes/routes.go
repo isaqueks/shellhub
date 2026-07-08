@@ -141,6 +141,15 @@ func NewRouter(service services.Service, opts ...Option) *echo.Echo {
 	publicAPI.PATCH(URLDeprecatedUpdateUser, gateway.Handler(handler.UpdateUser), routesmiddleware.BlockAPIKey)                 // WARN: DEPRECATED.
 	publicAPI.PATCH(URLDeprecatedUpdateUserPassword, gateway.Handler(handler.UpdateUserPassword), routesmiddleware.BlockAPIKey) // WARN: DEPRECATED.
 
+	// vault holds the authenticated user's encrypted SSH key vault for the current namespace.
+	// It is per-user (BlockAPIKey) and requires a selected namespace (Authorize). The server
+	// only ever stores opaque, client-encrypted blobs.
+	publicAPI.GET(GetVaultURL, routesmiddleware.Authorize(gateway.Handler(handler.GetVault)), routesmiddleware.BlockAPIKey)
+	publicAPI.DELETE(DeleteVaultURL, routesmiddleware.Authorize(gateway.Handler(handler.DeleteVault)), routesmiddleware.BlockAPIKey)
+	publicAPI.PUT(SaveVaultMetaURL, routesmiddleware.Authorize(gateway.Handler(handler.SaveVaultMeta)), routesmiddleware.BlockAPIKey)
+	publicAPI.PUT(SaveVaultDataURL, routesmiddleware.Authorize(gateway.Handler(handler.SaveVaultData)), routesmiddleware.BlockAPIKey)
+	publicAPI.PUT(SaveVaultSettingsURL, routesmiddleware.Authorize(gateway.Handler(handler.SaveVaultSettings)), routesmiddleware.BlockAPIKey)
+
 	publicAPI.GET(GetDeviceListURL, routesmiddleware.Authorize(gateway.Handler(handler.GetDeviceList)))
 	publicAPI.GET(GetDeviceURL, routesmiddleware.Authorize(gateway.Handler(handler.GetDevice)))
 	publicAPI.GET(ResolveDeviceURL, routesmiddleware.Authorize(gateway.Handler(handler.ResolveDevice)))

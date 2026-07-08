@@ -2,6 +2,12 @@ export interface ClientConfig {
   version: string;
   enterprise: boolean;
   cloud: boolean;
+  /**
+   * Whether server-side vault storage is available in this deployment. It is
+   * always on for Cloud/Enterprise; self-hosted Community deployments can opt in
+   * with SHELLHUB_VAULT_SERVER=true.
+   */
+  vaultServer: boolean;
   announcements: boolean;
   webEndpoints: boolean;
   onboardingUrl: string;
@@ -19,6 +25,7 @@ export const defaultConfig: ClientConfig = {
   version: "",
   enterprise: false,
   cloud: false,
+  vaultServer: false,
   announcements: false,
   webEndpoints: false,
   onboardingUrl: "",

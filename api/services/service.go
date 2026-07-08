@@ -41,6 +41,7 @@ type Service interface {
 	SetupService
 	SystemService
 	APIKeyService
+	VaultService
 
 	// Store returns the underlying store instance.
 	//
