@@ -34,9 +34,9 @@ func (pg *Pg) VaultSaveSettings(ctx context.Context, userID, tenantID, settings 
 
 // vaultUpsert creates the vault at version 1 when it does not exist yet or updates the
 // given column and bumps the version otherwise. column is a trusted internal constant, so
-// its set clause is never derived from user input. Within ON CONFLICT DO UPDATE an
-// unqualified column reference (version) resolves to the existing row, which is what the
-// increment relies on.
+// its set clause is never derived from user input. Within ON CONFLICT DO UPDATE both the
+// existing row (aliased "vault" by bun) and EXCLUDED are in scope, so version must be
+// qualified to resolve to the existing row.
 func (pg *Pg) vaultUpsert(ctx context.Context, userID, tenantID, column, value string) (*models.Vault, error) {
 	db := pg.GetConnection(ctx)
 
@@ -66,7 +66,7 @@ func (pg *Pg) vaultUpsert(ctx context.Context, userID, tenantID, column, value s
 		Model(e).
 		On("CONFLICT (user_id, namespace_id) DO UPDATE").
 		Set(setClause).
-		Set("version = version + 1").
+		Set("version = vault.version + 1").
 		Set("updated_at = EXCLUDED.updated_at").
 		Returning("*").
 		Scan(ctx, &result); err != nil {
