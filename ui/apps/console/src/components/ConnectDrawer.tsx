@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState, FormEvent } from "react";
+import { useEffect, useId, useReducer, useState, FormEvent } from "react";
 import {
   LockClosedIcon,
   KeyIcon,
@@ -121,6 +121,10 @@ export default function ConnectDrawer({
   variant = "terminal",
 }: Props) {
   const isSftp = variant === "sftp";
+  // Unique per drawer instance: several ConnectDrawers can be mounted at once for the
+  // same device (page drawer + terminal/SFTP manager drawers), and a duplicated form id
+  // would make the footer submit button target whichever form comes first in the DOM.
+  const formId = useId();
   const openTerminal = useTerminalStore((s) => s.open);
   const openSftp = useSftpStore((s) => s.open);
   const vaultStatus = useVaultStore((s) => s.status);
@@ -272,7 +276,7 @@ export default function ConnectDrawer({
             <Button
               variant="success"
               type="submit"
-              form={`connect-form-${deviceUid}`}
+              form={formId}
               disabled={!canConnect}
               icon={
                 isSftp ? (
@@ -288,7 +292,7 @@ export default function ConnectDrawer({
         }
       >
         <form
-          id={`connect-form-${deviceUid}`}
+          id={formId}
           onSubmit={handleConnect}
           className="space-y-5"
         >
