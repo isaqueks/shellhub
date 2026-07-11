@@ -116,6 +116,14 @@ func buildInstallOverrides(req *requests.SystemInstallScript) string {
 		fmt.Fprintf(&b, "PREFERRED_IDENTITY=\"${PREFERRED_IDENTITY:-%s}\"\n", req.PreferredIdentity)
 	}
 
+	// When the server runs a locally built image whose SHELLHUB_VERSION tag is
+	// not published (e.g. "v0.26.0-mybuild"), the script's default of reading
+	// /info would point devices at a nonexistent agent image/release. This env
+	// pins the agent to a published version instead.
+	if agentVersion := envs.DefaultBackend.Get("SHELLHUB_AGENT_VERSION"); agentVersion != "" {
+		fmt.Fprintf(&b, "AGENT_VERSION=\"${AGENT_VERSION:-%s}\"\n", agentVersion)
+	}
+
 	return b.String()
 }
 
